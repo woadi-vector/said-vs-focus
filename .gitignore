@@ -1,0 +1,10 @@
+node_modules/
+
+# Captured Bee data: real conversations, named people, locations.
+# Never committed. Fixtures for tests are redacted and live in test/fixtures/.
+data/
+
+.env
+.env.*
+*.log
+probe.mjs
