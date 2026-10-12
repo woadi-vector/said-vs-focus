@@ -9,6 +9,7 @@
   "keywords": [],
   "type": "module",
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1149.0",
     "@beeai/cli": "^0.7.3"
   }
 }
