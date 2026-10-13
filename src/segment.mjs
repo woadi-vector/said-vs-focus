@@ -20,10 +20,18 @@ export const WINDOW = 80;
 // the cut landed, not a property of the audio.
 export const MIN_TAIL = 16;
 
-export function windows(utterances, size = WINDOW, minTail = MIN_TAIL) {
-  const u = utterances
+// Every `from` and `to` written into a segment file indexes into THIS array.
+// Anything that later re-reads a conversation and slices by those indices must
+// build its array the same way, so the one definition lives here and callers
+// import it rather than repeating the filter and the sort.
+export function prepare(utterances) {
+  return utterances
     .filter((x) => Number.isFinite(x.spoken_at) && (x.text ?? "").trim())
     .sort((a, b) => a.spoken_at - b.spoken_at);
+}
+
+export function windows(utterances, size = WINDOW, minTail = MIN_TAIL) {
+  const u = prepare(utterances);
 
   const bounds = [];
   for (let i = 0; i < u.length; i += size) {
