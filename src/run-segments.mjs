@@ -1,5 +1,13 @@
 // Windows a conversation, classifies each window, merges adjacent windows
 // sharing a label, and writes the segments to disk.
+//
+// Failures are retried with backoff, then recorded on the window itself so the
+// error survives the merge and lands in the written record. A segment labelled
+// "error" with no explanation is worse than no segment at all.
+//
+// The label string is printed in window order, not completion order. Four
+// windows classify at once, so writing each character as it lands produces a
+// string that looks like a timeline and is not one.
 
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -12,6 +20,11 @@ const inDir = path.join(here, "..", "data", "conversations");
 const outDir = path.join(here, "..", "data", "segments");
 
 const CONCURRENCY = 4;
+const ATTEMPTS = 4;
+
+const MARK = { own: "o", media: "m", ambient: "a", unclear: "?", error: "!" };
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function pool(items, limit, fn) {
   const out = new Array(items.length);
@@ -27,12 +40,30 @@ async function pool(items, limit, fn) {
   return out;
 }
 
+async function classifyWithRetry(w) {
+  let last;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    try {
+      return await classify(w.utterances);
+    } catch (e) {
+      last = e;
+      if (attempt < ATTEMPTS) {
+        process.stdout.write(".");
+        await sleep(1000 * 2 ** (attempt - 1));
+      }
+    }
+  }
+  throw last;
+}
+
 const only = process.argv[2];
 await fs.mkdir(outDir, { recursive: true });
 
 const files = (await fs.readdir(inDir)).filter(
   (f) => !only || f === `${only}.json`
 );
+
+const failures = [];
 
 for (const f of files) {
   const id = f.replace(/\.json$/, "");
@@ -45,20 +76,33 @@ for (const f of files) {
 
   const labelled = await pool(ws, CONCURRENCY, async (w) => {
     try {
-      const r = await classify(w.utterances);
-      process.stdout.write(r.label === "own" ? "o" : r.label === "media" ? "m" : "?");
-      return { ...w, label: r.label, confidence: r.confidence, mixed: r.mixed, reasoning: r.reasoning };
+      const r = await classifyWithRetry(w);
+      return {
+        ...w,
+        label: r.label,
+        confidence: r.confidence,
+        mixed: r.mixed,
+        reasoning: r.reasoning,
+      };
     } catch (e) {
-      process.stdout.write("!");
-      return { ...w, label: "error", confidence: 0, mixed: null, error: e.message };
+      failures.push(`${id} window ${w.from}-${w.to}: ${e.message}`);
+      return {
+        ...w,
+        label: "error",
+        confidence: 0,
+        mixed: null,
+        error: e.message,
+      };
     }
   });
 
-  const segments = merge(labelled).map((s) => ({
-    ...s,
-    utterances: undefined,
-    utteranceCount: s.utterances.length,
-  }));
+  // In window order, so position means time.
+  process.stdout.write(labelled.map((w) => MARK[w.label] ?? "?").join(""));
+
+  const segments = merge(labelled).map((s) => {
+    const { utterances, ...rest } = s;
+    return { ...rest, utteranceCount: utterances.length };
+  });
 
   await fs.writeFile(
     path.join(outDir, `${id}.json`),
@@ -70,6 +114,14 @@ for (const f of files) {
   const ownSec = own.reduce((t, s) => t + s.speechSec, 0);
   const allSec = segments.reduce((t, s) => t + s.speechSec, 0);
   console.log(
-    `\n  ${segments.length} segments, own ${Math.round(ownSec / 60)}m of ${Math.round(allSec / 60)}m  ${c.short_summary ?? ""}`
+    `\n  ${segments.length} segments, own ${Math.round(ownSec / 60)}m of ` +
+      `${Math.round(allSec / 60)}m  ${c.short_summary ?? ""}`
   );
+}
+
+if (failures.length) {
+  console.log(`\n${failures.length} windows failed after ${ATTEMPTS} attempts:`);
+  for (const line of failures) console.log(`  ${line}`);
+} else {
+  console.log("\nno failures");
 }

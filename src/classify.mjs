@@ -16,20 +16,27 @@ import {
 } from "@aws-sdk/client-bedrock-runtime";
 
 const PROVIDER = process.env.LLM_PROVIDER ?? "bedrock";
+const MAX_TOKENS = 2048;
 
 const INSTRUCTIONS = `
 You are classifying a run of transcribed audio captured by an always-on
 wearable microphone worn by one person.
 
 Labels:
-  own      speech the wearer took part in, including solo speech. Talking to
-           pets, singing, thinking aloud, and game comms where only the
-           wearer's side reached the microphone all count as own.
-  media    television, film, radio, podcast, music, a recorded or streamed
-           talk. Audio produced by a device in the room rather than by people
-           present.
-  ambient  speech near the wearer that they are not part of. Overheard
-           conversation, a public address system, strangers nearby.
+  own      an activity the wearer was present for and part of, including
+           stretches where they say nothing at all. A class they are enrolled
+           in, a meeting they are attending, a call, a game they are playing,
+           a conversation at home. Solo speech counts too: talking to pets,
+           singing, thinking aloud. The wearer does not have to be the one
+           speaking for a run to be theirs.
+  media    broadcast or recorded entertainment the wearer is an audience to
+           rather than a participant in. Television, film, streamed video,
+           music, radio. The test is participation, not where the sound comes
+           from: a class delivered over video is own, a drama on the TV is
+           media.
+  ambient  incidental audio the wearer has no part in and did not choose.
+           Strangers at a nearby table, a public address system, background
+           chatter in a public place.
   unclear  the evidence genuinely does not settle it.
 
 Evidence that works:
@@ -52,13 +59,19 @@ Evidence that does NOT work. Do not rely on any of it:
 If the run contains more than one kind, set mixed to true and classify the
 dominant kind.
 
-Reply with JSON only, no prose around it:
+Output rules. Follow these exactly:
+  - Your entire reply is one JSON object and nothing else. No preamble, no
+    explanation before or after, no code fences.
+  - The first character you write is {
+  - Keep evidence to at most four entries and each why under fifteen words.
+  - Keep reasoning to one sentence.
+
 {
   "label": "own" | "media" | "ambient" | "unclear",
   "confidence": 0.0 to 1.0,
   "mixed": true | false,
   "evidence": [{ "index": 0, "why": "short reason" }],
-  "reasoning": "one or two sentences"
+  "reasoning": "one sentence"
 }
 `.trim();
 
@@ -75,6 +88,21 @@ function buildPrompt(utterances, facts) {
     `${INSTRUCTIONS}\n\n` +
     `Known facts about the wearer:\n${factBlock}\n\n` +
     `Transcribed run (${lines.length} utterances):\n${lines.join("\n")}`
+  );
+}
+
+// Reads text from every text block rather than assuming it is the first one,
+// and reports what actually came back when there is none.
+function textOf(payload) {
+  const blocks = payload.content ?? [];
+  const text = blocks
+    .filter((b) => b.type === "text" && typeof b.text === "string")
+    .map((b) => b.text)
+    .join("");
+  if (text) return text;
+  throw new Error(
+    `empty reply, stop_reason=${payload.stop_reason}, ` +
+    `blocks=${JSON.stringify(blocks).slice(0, 300)}`
   );
 }
 
@@ -95,14 +123,13 @@ async function callBedrock(prompt) {
       accept: "application/json",
       body: JSON.stringify({
         anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 1024,
+        max_tokens: MAX_TOKENS,
         messages: [{ role: "user", content: prompt }],
       }),
     })
   );
 
-  const payload = JSON.parse(new TextDecoder().decode(res.body));
-  return payload.content?.[0]?.text ?? "";
+  return textOf(JSON.parse(new TextDecoder().decode(res.body)));
 }
 
 async function callAnthropic(prompt) {
@@ -118,7 +145,7 @@ async function callAnthropic(prompt) {
     },
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5",
-      max_tokens: 1024,
+      max_tokens: MAX_TOKENS,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -126,8 +153,7 @@ async function callAnthropic(prompt) {
   if (!res.ok) {
     throw new Error(`Anthropic API ${res.status}: ${await res.text()}`);
   }
-  const payload = await res.json();
-  return payload.content?.[0]?.text ?? "";
+  return textOf(await res.json());
 }
 
 export async function classify(utterances, facts = []) {
@@ -139,7 +165,7 @@ export async function classify(utterances, facts = []) {
 
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) {
-    throw new Error(`No JSON in model reply: ${text.slice(0, 200)}`);
+    throw new Error(`no JSON in reply: ${text.slice(0, 300)}`);
   }
   return JSON.parse(match[0]);
 }

@@ -219,6 +219,81 @@ identification so developers know whether to build on it.
 
 ---
 
+# AWS Bedrock onboarding
+
+The hackathon points developers at Bedrock for model inference. Zero to a
+single successful inference call took three sequential blockers, each
+presenting as a different error class, none of them documented on the path a
+new developer actually walks. Recorded here because the submission form asks
+about onboarding, and this was the onboarding.
+
+## 11. Model access denial names the wrong model
+
+**Severity: high**
+
+**Task** — Call Claude Sonnet through Bedrock from a fresh AWS account.
+
+**Steps** — `InvokeModel` against `us.anthropic.claude-sonnet-5`, the
+cross-region inference profile the console itself recommends.
+
+**Expected** — Either an inference result, or an error naming what to enable.
+
+**Actual** — `403 AccessDeniedException`, and the message names the *base*
+model id, not the inference profile that was called. The profile resolves
+first and the denial surfaces one layer below the id in the request, so
+searching the error text leads to the wrong resource. Time was spent
+requesting access to a model that was never the thing being refused.
+
+**Root cause** — An Anthropic use case details form, required once per
+account, surfaced only on the model detail page in the console rather than
+anywhere in the access flow or the error. After submitting it, access
+propagated in roughly 15 minutes, with no state shown anywhere during the
+wait. A developer who checks immediately, sees the same 403, and concludes the
+form did not work will keep digging in the wrong place.
+
+**Suggestion** — Name the inference profile in the denial, and say which form
+is outstanding. "Access denied: complete the use case details form for this
+provider" is one sentence and removes the entire blocker.
+
+## 12. New accounts carry a daily token quota too small for a hello world
+
+**Severity: high**
+
+**Task** — Make one successful inference call after access was granted.
+
+**Actual** — `429 ThrottlingException: Too many tokens per day` on an account
+with zero prior successful calls. The daily quota on a new account is small
+enough that the first real request can exhaust it, and the per-account default
+is not shown during setup. Nothing distinguishes this from ordinary rate
+limiting, so the obvious reaction is to back off and retry, which cannot
+succeed until the next day.
+
+**Workaround** — Develop against the direct Anthropic API, and keep Bedrock as
+the production path behind the same interface. This project ships both for
+that reason, which is a design decision forced by a quota rather than chosen.
+
+**Suggestion** — Show the daily token quota in the model access screen, and
+distinguish per-day exhaustion from per-minute throttling in the error. A new
+developer cannot tell whether to wait seconds or a day.
+
+## 13. The cheap fallback model is end of life and answers 404
+
+**Severity: medium**
+
+**Task** — Fall back to a smaller model while quota was exhausted.
+
+**Steps** — `anthropic.claude-3-haiku-20240307-v1:0`, which still appears in
+sample code and tutorials.
+
+**Actual** — `404`. The model is end of life. The 404 does not say so, and
+does not name a successor, so it reads as a typo in the model id.
+
+**Suggestion** — Return a deprecation message naming the replacement. Also
+worth auditing the sample code and quickstarts that still carry retired model
+ids, since those are precisely what a developer copies on day one.
+
+---
+
 ## Also worth noting
 
 A webinar played through laptop speakers was recorded, transcribed, and

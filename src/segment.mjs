@@ -6,21 +6,44 @@
 // 349 seconds, inside a conversation running 349 minutes. Ambient audio has no
 // silence structure, so context changes are not marked by time. See
 // docs/segmentation.md.
+//
+// Merging keeps every window's own verdict in `notes`. A segment is an
+// aggregate, and a user asking why a block was called television is owed the
+// evidence that produced that call, not just the label it collapsed into.
 
 export const WINDOW = 80;
 
-export function windows(utterances, size = WINDOW) {
+// A trailing slice this small is folded into the window before it. Measured
+// reason: conversation 10910324 ended with a one-utterance window, which cost
+// a classification call and returned "unclear" because a single generic
+// reaction line carries no evidence either way. That is an artifact of where
+// the cut landed, not a property of the audio.
+export const MIN_TAIL = 16;
+
+export function windows(utterances, size = WINDOW, minTail = MIN_TAIL) {
   const u = utterances
     .filter((x) => Number.isFinite(x.spoken_at) && (x.text ?? "").trim())
     .sort((a, b) => a.spoken_at - b.spoken_at);
 
-  const out = [];
+  const bounds = [];
   for (let i = 0; i < u.length; i += size) {
-    const slice = u.slice(i, i + size);
-    if (slice.length === 0) continue;
-    out.push({
-      from: i,
-      to: i + slice.length,
+    bounds.push([i, Math.min(i + size, u.length)]);
+  }
+
+  // Fold a short tail back, unless it is the only window.
+  if (bounds.length > 1) {
+    const [tailFrom, tailTo] = bounds.at(-1);
+    if (tailTo - tailFrom < minTail) {
+      bounds.pop();
+      bounds[bounds.length - 1][1] = tailTo;
+    }
+  }
+
+  return bounds.map(([from, to]) => {
+    const slice = u.slice(from, to);
+    return {
+      from,
+      to,
       utterances: slice,
       startMs: slice[0].spoken_at,
       endMs: slice.at(-1).spoken_at,
@@ -31,9 +54,23 @@ export function windows(utterances, size = WINDOW) {
       label: null,
       confidence: null,
       mixed: null,
-    });
-  }
-  return out;
+      reasoning: null,
+      error: null,
+    };
+  });
+}
+
+// One note per contributing window: what it was called, how sure, and why.
+function noteOf(w) {
+  return {
+    from: w.from,
+    to: w.to,
+    startMs: w.startMs,
+    confidence: w.confidence ?? null,
+    mixed: w.mixed ?? null,
+    reasoning: w.reasoning ?? null,
+    error: w.error ?? null,
+  };
 }
 
 export function merge(labelled) {
@@ -46,11 +83,15 @@ export function merge(labelled) {
       last.speechSec += w.speechSec;
       last.utterances.push(...w.utterances);
       last.windows += 1;
-      last.confidence = Math.min(last.confidence, w.confidence ?? 1);
+      last.confidence = Math.min(last.confidence ?? 1, w.confidence ?? 1);
+      last.mixed = last.mixed || Boolean(w.mixed);
+      last.notes.push(noteOf(w));
+      if (w.error) last.errors.push(`${w.from}-${w.to}: ${w.error}`);
     } else {
       segments.push({
         label: w.label,
         confidence: w.confidence ?? null,
+        mixed: Boolean(w.mixed),
         from: w.from,
         to: w.to,
         startMs: w.startMs,
@@ -58,6 +99,8 @@ export function merge(labelled) {
         speechSec: w.speechSec,
         utterances: [...w.utterances],
         windows: 1,
+        notes: [noteOf(w)],
+        errors: w.error ? [`${w.from}-${w.to}: ${w.error}`] : [],
       });
     }
   }
