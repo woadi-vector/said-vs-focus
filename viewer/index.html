@@ -1,0 +1,1152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Said versus focused</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Greenbar ledger paper. Data colors validated for the categorical checks:
+   light #B3353D / #0B7FA8 on #F2F5F0, dark #E0646B / #2E9FBF on #141A18.
+   Excluded capture is hatched rather than tinted, because a voided entry in a
+   ledger is struck through, and because color alone must not carry it. */
+:root {
+  --paper:      #F2F5F0;
+  --band:       #E6EDE4;
+  --rule:       #BCCDBB;
+  --rule-firm:  #8DA68E;
+  --ink:        #14211C;
+  --ink-soft:   #4C5D54;
+  --ink-mute:   #6F8077;
+  --stated:     #B3353D;
+  --other:      #0B7FA8;
+  --void:       #8FA397;
+  --focus:      #0B7FA8;
+
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+
+  --row: 2.45rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:     #141A18;
+    --band:      #1B2420;
+    --rule:      #2C3A34;
+    --rule-firm: #46574E;
+    --ink:       #E8EFE8;
+    --ink-soft:  #A9BAB0;
+    --ink-mute:  #7E8F86;
+    --stated:    #E0646B;
+    --other:     #2E9FBF;
+    --void:      #6D7E75;
+    --focus:     #2E9FBF;
+  }
+}
+:root[data-theme="dark"] {
+  --paper:     #141A18;
+  --band:      #1B2420;
+  --rule:      #2C3A34;
+  --rule-firm: #46574E;
+  --ink:       #E8EFE8;
+  --ink-soft:  #A9BAB0;
+  --ink-mute:  #7E8F86;
+  --stated:    #E0646B;
+  --other:     #2E9FBF;
+  --void:      #6D7E75;
+  --focus:     #2E9FBF;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 3rem 16px 5rem;
+}
+
+/* Header ------------------------------------------------------------ */
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  padding-bottom: .75rem;
+  border-bottom: 2px solid var(--rule-firm);
+}
+.masthead h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 4.5vw, 2.5rem);
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  line-height: 1.05;
+}
+.window-label {
+  font-family: var(--mono);
+  font-size: .8125rem;
+  color: var(--ink-soft);
+}
+
+/* Hero: the unclaimed mass ------------------------------------------ */
+
+.capture { margin: 2.5rem 0 3rem; }
+.capture p {
+  margin: 0 0 1.25rem;
+  max-width: 54ch;
+  font-size: clamp(1.0625rem, 2.2vw, 1.3125rem);
+  line-height: 1.45;
+}
+.capture p b { font-weight: 600; }
+
+.capture-bar {
+  position: relative;
+  height: 2.75rem;
+  border: 1px solid var(--rule-firm);
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0 5px,
+    color-mix(in srgb, var(--void) 42%, transparent) 5px 6px
+  );
+  background-color: var(--band);
+}
+.capture-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ink);
+  transition: width .45s cubic-bezier(.2,.7,.2,1);
+}
+.capture-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem 1.75rem;
+  margin-top: .6rem;
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--ink-soft);
+}
+.key { display: inline-flex; align-items: center; gap: .45rem; }
+.swatch {
+  width: .9rem; height: .9rem;
+  border: 1px solid var(--rule-firm);
+  flex: none;
+}
+.swatch.own  { background: var(--ink); }
+.swatch.void {
+  background-color: var(--band);
+  background-image: repeating-linear-gradient(
+    45deg, transparent 0 3px,
+    color-mix(in srgb, var(--void) 55%, transparent) 3px 4px
+  );
+}
+.swatch.said  { background: var(--stated); }
+.swatch.unsaid { background: var(--other); }
+
+/* Controls ---------------------------------------------------------- */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem 1.25rem;
+  margin: 0 0 1.75rem;
+  padding: .7rem 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.controls .label {
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--ink-mute);
+}
+.seg { display: inline-flex; border: 1px solid var(--rule-firm); }
+.seg button {
+  font: 500 .8125rem/1 var(--mono);
+  color: var(--ink-soft);
+  background: transparent;
+  border: 0;
+  padding: .5rem .8rem;
+  cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+.ghost {
+  font: 500 .8125rem/1 var(--mono);
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule-firm);
+  padding: .5rem .8rem;
+  cursor: pointer;
+}
+.ghost[hidden] { display: none; }
+
+/* The ledger -------------------------------------------------------- */
+
+.ledger {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7.5rem minmax(0, 1.35fr);
+  gap: 0 0;
+  align-items: start;
+}
+.col-head {
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--ink-mute);
+  padding-bottom: .5rem;
+  border-bottom: 1px solid var(--rule-firm);
+}
+.col-head.right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .3rem 1.25rem;
+}
+.col-head.mid { border-bottom-color: transparent; }
+.ledger-keys { display: flex; flex-wrap: wrap; gap: .3rem 1rem; }
+.nothing-else {
+  margin: .9rem 0 0;
+  padding-left: .55rem;
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--ink-mute);
+}
+
+#wires {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+#wires path {
+  fill: none;
+  stroke: var(--stated);
+  stroke-width: 1.5;
+  opacity: .75;
+}
+#wires path.dim { opacity: .22; }
+
+.rows { display: block; }
+
+.row {
+  display: grid;
+  align-items: center;
+  width: 100%;
+  min-height: var(--row);
+  padding: .3rem .55rem;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.row:nth-child(even) { background: var(--band); }
+.row:hover { box-shadow: inset 2px 0 0 var(--rule-firm); }
+.row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.row[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--ink); }
+
+/* Left: stated priorities */
+.rows.left .row { grid-template-columns: 1.6rem minmax(0,1fr); gap: .7rem; }
+.rank {
+  font-family: var(--mono);
+  font-size: .8125rem;
+  color: var(--stated);
+  font-weight: 600;
+}
+.commit { min-width: 0; }
+.commit .what {
+  display: block;
+  font-size: .9375rem;
+  overflow-wrap: break-word;
+}
+.commit .topic {
+  display: block;
+  font-family: var(--mono);
+  font-size: .6875rem;
+  color: var(--ink-mute);
+}
+
+/* Right: measured */
+.rows.right .row {
+  grid-template-columns: minmax(0, 1fr) 4.25rem 3.25rem;
+  gap: .55rem;
+}
+.measured-name {
+  min-width: 0;
+  font-size: .9375rem;
+  overflow-wrap: break-word;
+}
+.measured-name.said { color: var(--stated); font-weight: 500; }
+.track {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 9px;
+  margin-top: .1rem;
+}
+.bar {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: var(--other);
+  border-radius: 0 4px 4px 0;
+  min-width: 2px;
+  transition: width .45s cubic-bezier(.2,.7,.2,1);
+}
+.row.said .bar { background: var(--stated); }
+.pred {
+  position: absolute;
+  top: -3px; bottom: -3px;
+  width: 2px;
+  background: var(--ink-mute);
+}
+.mins, .share {
+  font-family: var(--mono);
+  font-size: .8125rem;
+  text-align: right;
+  white-space: nowrap;
+}
+.share { color: var(--ink-soft); }
+.zero .mins, .zero .share, .zero .measured-name { color: var(--ink-mute); }
+
+/* The refusal. Stated as its own block so declining to rank reads as a
+   decision the instrument made, not as a row that happens to be empty. */
+.declined-head {
+  padding: 1.1rem .55rem .5rem;
+  margin-top: .6rem;
+  border-top: 1px solid var(--rule-firm);
+  font-family: var(--mono);
+  font-size: .75rem;
+  line-height: 1.55;
+  color: var(--ink-mute);
+  max-width: 56ch;
+}
+.rows.right .row.declined {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 2rem;
+}
+.row.declined .measured-name { color: var(--ink-soft); }
+.row.declined.said .measured-name { color: var(--stated); }
+.withheld {
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+
+.unassigned {
+  grid-column: 3;
+  padding: .55rem;
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--ink-mute);
+  border-bottom: 1px solid var(--rule);
+}
+
+.pred-note {
+  grid-column: 1 / -1;
+  margin-top: .9rem;
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--ink-mute);
+}
+
+/* Detail ------------------------------------------------------------ */
+
+.detail {
+  margin-top: 3rem;
+  border-top: 2px solid var(--rule-firm);
+  padding-top: 1.5rem;
+}
+.detail[hidden] { display: none; }
+.detail h2 {
+  margin: 0 0 .2rem;
+  font-size: 1.3125rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+.detail .def {
+  margin: 0 0 1.25rem;
+  max-width: 62ch;
+  color: var(--ink-soft);
+  font-size: .9375rem;
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2.5rem;
+  padding: .9rem 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 1.5rem;
+}
+.fact { min-width: 0; }
+.fact dt {
+  font-family: var(--mono);
+  font-size: .6875rem;
+  color: var(--ink-mute);
+  margin-bottom: .15rem;
+}
+.fact dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 1rem;
+}
+.fact dd small {
+  font-size: .75rem;
+  color: var(--ink-soft);
+}
+.said-note {
+  margin: 0 0 1.5rem;
+  padding: .8rem 1rem;
+  border-left: 3px solid var(--stated);
+  background: var(--band);
+  max-width: 62ch;
+}
+.said-note p { margin: 0; font-size: .9375rem; }
+.declined-note { border-left-color: var(--rule-firm); max-width: 68ch; }
+.said-note cite {
+  display: block;
+  margin-top: .35rem;
+  font-family: var(--mono);
+  font-size: .6875rem;
+  font-style: normal;
+  color: var(--ink-mute);
+}
+
+.seg-list { margin: 0; padding: 0; list-style: none; }
+.seg-item {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.seg-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem 1rem;
+}
+.seg-where {
+  font-size: .9375rem;
+  font-weight: 500;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.seg-meta {
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.seg-why {
+  margin: .5rem 0 0;
+  padding: 0;
+  list-style: none;
+  max-width: 68ch;
+}
+.seg-why li {
+  font-size: .875rem;
+  color: var(--ink-soft);
+  padding-left: .9rem;
+  position: relative;
+  margin-bottom: .2rem;
+}
+.seg-why li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: .62em;
+  width: .45rem; height: 1px;
+  background: var(--rule-firm);
+}
+.lines {
+  margin: .75rem 0 0;
+  padding: 0;
+  list-style: none;
+  border-left: 2px solid var(--rule);
+}
+.lines li {
+  font-family: var(--mono);
+  font-size: .8125rem;
+  color: var(--ink);
+  padding: .18rem 0 .18rem .75rem;
+  overflow-wrap: break-word;
+}
+.lines li span { color: var(--ink-mute); margin-right: .5rem; }
+.seg-actions { margin-top: .75rem; }
+.excluded { opacity: .55; }
+.excluded .seg-where { text-decoration: line-through; }
+
+/* Adjustments ------------------------------------------------------- */
+
+.adjust {
+  margin-top: 3rem;
+  border-top: 2px solid var(--rule-firm);
+  padding-top: 1.5rem;
+}
+.adjust[hidden] { display: none; }
+.adjust h2 { margin: 0 0 1rem; font-size: 1.125rem; font-weight: 600; }
+.adjust ol { margin: 0 0 1rem; padding-left: 1.3rem; }
+.adjust li { font-size: .9375rem; margin-bottom: .35rem; }
+.delta {
+  font-family: var(--mono);
+  font-size: .8125rem;
+  color: var(--ink-soft);
+}
+
+/* Method ------------------------------------------------------------ */
+
+.method {
+  margin-top: 3.5rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 1.25rem;
+  max-width: 68ch;
+}
+.method h2 { font-size: .9375rem; font-weight: 600; margin: 0 0 .6rem; }
+.method p {
+  margin: 0 0 .7rem;
+  font-size: .875rem;
+  color: var(--ink-soft);
+}
+.method code {
+  font-family: var(--mono);
+  font-size: .8125em;
+}
+
+/* Empty state ------------------------------------------------------- */
+
+.empty { margin: 3rem 0; max-width: 62ch; }
+.empty[hidden] { display: none; }
+.empty h2 { font-size: 1.125rem; margin: 0 0 .6rem; }
+.empty p { color: var(--ink-soft); font-size: .9375rem; margin: 0 0 1rem; }
+.empty pre {
+  font-family: var(--mono);
+  font-size: .8125rem;
+  background: var(--band);
+  border: 1px solid var(--rule);
+  padding: .7rem .9rem;
+  overflow-x: auto;
+}
+
+@media (max-width: 760px) {
+  .ledger { grid-template-columns: minmax(0, 1fr); }
+  .col-head.mid { display: none; }
+  #wires { display: none; }
+  .unassigned { grid-column: 1; }
+  .col-head.right { margin-top: 2rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0s !important; animation-duration: 0s !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Said versus focused</h1>
+    <div class="window-label" id="window-label"></div>
+  </header>
+
+  <section class="empty" id="empty" hidden>
+    <h2>No payload loaded</h2>
+    <p>This page reads <code>data/view/payload.json</code>, which browsers will not fetch from a <code>file://</code> page. Serve the repository root and reload:</p>
+    <pre>python -m http.server 8000
+# or
+npx --yes serve@14.2.4 .</pre>
+    <p>Then open <code>http://localhost:8000/viewer/</code>. You can also pick the file directly:</p>
+    <input type="file" id="picker" accept="application/json,.json">
+  </section>
+
+  <main id="app" hidden>
+
+    <section class="capture" aria-labelledby="capture-h">
+      <h2 id="capture-h" class="visually-hidden" hidden>Capture</h2>
+      <p id="capture-sentence"></p>
+      <div class="capture-bar" role="img" id="capture-bar">
+        <div class="capture-fill" id="capture-fill"></div>
+      </div>
+      <div class="capture-keys">
+        <span class="key"><span class="swatch own"></span> conversation you were in</span>
+        <span class="key"><span class="swatch void"></span> television, film, audio you were near</span>
+      </div>
+    </section>
+
+    <div class="controls">
+      <span class="label">share of</span>
+      <div class="seg" role="group" aria-label="Denominator">
+        <button type="button" id="mode-own" aria-pressed="true">your conversation</button>
+        <button type="button" id="mode-all" aria-pressed="false">everything captured</button>
+      </div>
+      <button type="button" class="ghost" id="reset" hidden>Undo all corrections</button>
+    </div>
+
+    <section class="ledger" aria-label="Stated priorities against measured focus">
+      <svg id="wires" aria-hidden="true"></svg>
+
+      <div class="col-head">What you said mattered</div>
+      <div class="col-head mid"></div>
+      <div class="col-head right">
+        <span>What the talking was about</span>
+        <span class="ledger-keys">
+          <span class="key"><span class="swatch said"></span> named a priority</span>
+          <span class="key"><span class="swatch unsaid"></span> not named</span>
+        </span>
+      </div>
+
+      <div>
+        <div class="rows left" id="left" role="listbox" aria-label="Stated priorities"></div>
+        <p class="nothing-else">Nothing else was named.</p>
+      </div>
+      <div></div>
+      <div class="rows right" id="right" role="listbox" aria-label="Measured topics"></div>
+
+      <div class="unassigned" id="unassigned"></div>
+      <div class="pred-note">Vertical ticks mark the share predicted on 9 October, before the window opened.</div>
+    </section>
+
+    <section class="detail" id="detail" hidden aria-live="polite"></section>
+
+    <section class="adjust" id="adjust" hidden>
+      <h2>Corrections applied</h2>
+      <ol id="adjust-list"></ol>
+      <div class="delta" id="adjust-delta"></div>
+    </section>
+
+    <section class="method">
+      <h2>How to read this</h2>
+      <p>Shares are computed over conversation the wearer took part in, after the media filter, as fixed in <code>docs/denominator.md</code> before the window closed. Television is excluded from the denominator and is not eligible to be a topic. The second control switches to everything captured, published as a sensitivity check so the denominator cannot be accused of flattering the prediction.</p>
+      <p>Topic durations hold to roughly five percent between identical runs, but topics within about a minute of each other swap places, so a ranking between two near-tied rows is not a measurement. <code>docs/variance.md</code> fixes the procedure. Minutes are the sum of utterance durations, not wall clock.</p>
+      <p>Every row opens to the segments behind it, the filter's own reason for calling each one yours, and the lines it was built from. Marking a segment as not yours removes it from the denominator and from every topic it fed, and the ranking recomputes.</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+const fmtMin = (sec) => Math.round(sec / 60);
+const fmtPct = (n) => (n * 100).toFixed(1);
+// Small amounts are the whole point of the withheld rows, so they are never
+// rounded into "0.0 min". A two second finding is reported as two seconds.
+const fmtSmall = (sec) =>
+  sec < 60 ? `${Math.round(sec)} sec` : `${(sec / 60).toFixed(1)} min`;
+const clock = (ms) =>
+  new Date(ms).toLocaleString(undefined, {
+    weekday: "short", hour: "numeric", minute: "2-digit",
+  });
+
+let P = null;
+const overrides = new Map();   // "convId:segOrder" -> "own" | "media"
+let mode = "own";
+let selected = null;
+
+const el = (id) => document.getElementById(id);
+const segKey = (c, s) => `${c.id}:${s.order}`;
+const effLabel = (c, s) => overrides.get(segKey(c, s)) ?? s.label;
+
+function windowConvs() {
+  return P.conversations.filter((c) => c.inWindow);
+}
+
+function compute() {
+  let captured = 0, own = 0;
+  const topics = new Map();
+
+  for (const c of windowConvs()) {
+    for (const s of c.segments) {
+      captured += s.speechSec;
+      if (effLabel(c, s) !== "own") continue;
+      own += s.speechSec;
+      for (const [t, sec] of Object.entries(s.topics)) {
+        topics.set(t, (topics.get(t) ?? 0) + sec);
+      }
+    }
+  }
+
+  const attributed = [...topics.values()].reduce((a, b) => a + b, 0);
+  return {
+    captured, own, topics,
+    // Everything inside own time that carries no topic: backchannel the model
+    // judged subjectless, lines it never resolved, and any segment re-included
+    // by hand that has not been through attribution.
+    unassigned: Math.max(0, own - attributed),
+    denominator: mode === "own" ? own : captured,
+  };
+}
+
+function topicMeta(id) {
+  return P.topics.find((t) => t.id === id) ?? { id, label: id };
+}
+
+/* Rendering ---------------------------------------------------------- */
+
+function renderCapture(m) {
+  const pct = m.captured ? m.own / m.captured : 0;
+  el("capture-sentence").innerHTML =
+    `The band listened for <b>${fmtMin(m.captured)} minutes</b> this week. ` +
+    `<b>${fmtMin(m.own)}</b> of them were a conversation you were in.`;
+  el("capture-fill").style.width = `${pct * 100}%`;
+  el("capture-bar").setAttribute(
+    "aria-label",
+    `${fmtMin(m.own)} of ${fmtMin(m.captured)} captured minutes were conversation you took part in, ${fmtPct(pct)} percent.`
+  );
+}
+
+function renderLeft() {
+  const host = el("left");
+  host.textContent = "";
+  for (const s of P.stated) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "row";
+    b.dataset.topic = s.id;
+    b.setAttribute("role", "option");
+    b.setAttribute("aria-selected", selected === s.id ? "true" : "false");
+    b.innerHTML =
+      `<span class="rank">${s.rank}</span>` +
+      `<span class="commit"><span class="what"></span>` +
+      `<span class="topic"></span></span>`;
+    b.querySelector(".what").textContent = s.commitment ?? s.label;
+    b.querySelector(".topic").textContent = s.label;
+    b.addEventListener("click", () => select(s.id));
+    host.appendChild(b);
+  }
+}
+
+function ranked(m) {
+  return P.topics
+    .map((t) => ({ ...t, sec: m.topics.get(t.id) ?? 0 }))
+    .sort((a, b) => b.sec - a.sec || a.label.localeCompare(b.label));
+}
+
+function renderRight(m) {
+  const host = el("right");
+  const before = new Map();
+  for (const node of host.children) {
+    before.set(node.dataset.topic, node.getBoundingClientRect().top);
+  }
+
+  host.textContent = "";
+  const all = ranked(m);
+  // docs/variance.md: below the floor a total cannot be told apart from a
+  // single mis-assignment, so it is reported, not ranked.
+  const floor = P.floorSec ?? 0;
+  const rows = all.filter((r) => r.sec > 0 && r.sec >= floor);
+  const declined = all.filter((r) => r.sec === 0 || r.sec < floor);
+  const peak = Math.max(...rows.map((r) => r.sec), 1);
+
+  for (const r of rows) {
+    const share = m.denominator ? r.sec / m.denominator : 0;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "row" + (r.statedRank ? " said" : "") + (r.sec === 0 ? " zero" : "");
+    b.dataset.topic = r.id;
+    b.setAttribute("role", "option");
+    b.setAttribute("aria-selected", selected === r.id ? "true" : "false");
+    b.innerHTML =
+      `<span class="measured-name${r.statedRank ? " said" : ""}"></span>` +
+      `<span class="mins"></span><span class="share"></span>` +
+      `<span class="track"><span class="bar"></span><span class="pred"></span></span>`;
+    b.querySelector(".measured-name").textContent = r.label;
+    b.querySelector(".mins").textContent = `${fmtMin(r.sec)} min`;
+    b.querySelector(".share").textContent = `${fmtPct(share)}%`;
+    b.querySelector(".bar").style.width = `${(r.sec / peak) * 100}%`;
+
+    const pred = b.querySelector(".pred");
+    if (typeof r.predictedShare === "number") {
+      // Predicted share is on the same axis as measured share, scaled to the
+      // same peak, so the tick and the bar are directly comparable.
+      const predSec = (r.predictedShare / 100) * m.denominator;
+      pred.style.left = `${Math.min(100, (predSec / peak) * 100)}%`;
+      pred.title = `predicted ${r.predictedShare}%`;
+    } else {
+      pred.remove();
+    }
+
+    b.addEventListener("click", () => select(r.id));
+    host.appendChild(b);
+  }
+
+  if (declined.length) {
+    const head = document.createElement("div");
+    head.className = "declined-head";
+    head.textContent = floor
+      ? `Not ranked. Below the ${(floor / 60).toFixed(1)} minute floor, which is the largest swing between identical runs, so these cannot be told apart from a single mis-assignment.`
+      : "Not ranked. Nothing was attributed to these.";
+    host.appendChild(head);
+
+    for (const r of declined) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "row declined" + (r.statedRank ? " said" : "");
+      b.dataset.topic = r.id;
+      b.setAttribute("role", "option");
+      b.setAttribute("aria-selected", selected === r.id ? "true" : "false");
+      b.innerHTML =
+        `<span class="measured-name${r.statedRank ? " said" : ""}"></span>` +
+        `<span class="withheld"></span>`;
+      b.querySelector(".measured-name").textContent = r.label;
+      b.querySelector(".withheld").textContent =
+        r.sec === 0 ? "nothing found" : `${fmtSmall(r.sec)} found, withheld`;
+      b.addEventListener("click", () => select(r.id));
+      host.appendChild(b);
+    }
+  }
+
+  // One orchestrated move: rows that changed rank slide from where they were.
+  if (before.size && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    for (const node of host.children) {
+      const was = before.get(node.dataset.topic);
+      if (was === undefined) continue;
+      const delta = was - node.getBoundingClientRect().top;
+      if (!delta) continue;
+      node.animate(
+        [{ transform: `translateY(${delta}px)` }, { transform: "none" }],
+        { duration: 420, easing: "cubic-bezier(.2,.7,.2,1)" }
+      );
+    }
+  }
+
+  el("unassigned").textContent =
+    `${fmtMin(m.unassigned)} min carried no subject: backchannel, fragments, ` +
+    `and anything re-included by hand that has not been attributed.`;
+}
+
+function drawWires() {
+  const svg = el("wires");
+  svg.textContent = "";
+  if (matchMedia("(max-width: 760px)").matches) return;
+
+  const box = svg.getBoundingClientRect();
+  const lefts = el("left").children;
+  const rights = el("right").children;
+  if (!lefts.length || !rights.length) return;
+
+  const rightOf = new Map();
+  for (const node of rights) rightOf.set(node.dataset.topic, node);
+
+  for (const l of lefts) {
+    const r = rightOf.get(l.dataset.topic);
+    if (!r) continue;
+    const a = l.getBoundingClientRect();
+    const z = r.getBoundingClientRect();
+    const x1 = a.right - box.left;
+    const y1 = a.top + a.height / 2 - box.top;
+    const x2 = z.left - box.left;
+    const y2 = z.top + z.height / 2 - box.top;
+    const mid = (x1 + x2) / 2;
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}`);
+    if (selected && selected !== l.dataset.topic) path.classList.add("dim");
+    svg.appendChild(path);
+  }
+}
+
+/* Detail ------------------------------------------------------------- */
+
+function contributions(topicId) {
+  const out = [];
+  for (const c of windowConvs()) {
+    for (const s of c.segments) {
+      const sec = s.topics?.[topicId] ?? 0;
+      const flipped = overrides.has(segKey(c, s));
+      if (sec > 0 || (flipped && s.label === "own")) {
+        out.push({ conv: c, seg: s, sec });
+      }
+    }
+  }
+  return out.sort((a, b) => b.sec - a.sec);
+}
+
+function renderDetail(m) {
+  const host = el("detail");
+  if (!selected) { host.hidden = true; host.textContent = ""; return; }
+
+  const t = topicMeta(selected);
+  const sec = m.topics.get(selected) ?? 0;
+  const share = m.denominator ? sec / m.denominator : 0;
+  const v = P.variance?.[selected];
+
+  host.hidden = false;
+  host.textContent = "";
+
+  const h = document.createElement("h2");
+  h.textContent = t.label;
+  host.appendChild(h);
+
+  const def = document.createElement("p");
+  def.className = "def";
+  def.textContent = t.definition ?? "";
+  host.appendChild(def);
+
+  if (t.commitment) {
+    const note = document.createElement("div");
+    note.className = "said-note";
+    const p = document.createElement("p");
+    p.textContent = `You said this mattered: ${t.commitment}.`;
+    const cite = document.createElement("cite");
+    cite.textContent = t.source ?? "";
+    note.append(p, cite);
+    host.appendChild(note);
+  }
+
+  const facts = document.createElement("dl");
+  facts.className = "facts";
+  const fact = (label, value, small) => {
+    const d = document.createElement("div");
+    d.className = "fact";
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.textContent = value;
+    if (small) {
+      const s = document.createElement("small");
+      s.textContent = ` ${small}`;
+      dd.appendChild(s);
+    }
+    d.append(dt, dd);
+    return d;
+  };
+  const floor = P.floorSec ?? 0;
+  const held = sec < floor;
+  facts.appendChild(
+    held
+      ? fact("measured", fmtSmall(sec), "withheld, not ranked")
+      : fact("measured", `${fmtMin(sec)} min`, `${fmtPct(share)}%`)
+  );
+  if (typeof t.predictedShare === "number") {
+    facts.appendChild(fact("predicted", `${t.predictedShare}%`, "on 9 Oct"));
+  }
+  // Whole minutes would print a 4.5 to 5.3 spread as "5 to 5", which is the
+  // false precision docs/variance.md exists to prevent.
+  const fine = (s) => (s < 1800 ? (s / 60).toFixed(1) : String(Math.round(s / 60)));
+  facts.appendChild(
+    v && v.runs
+      ? fact("observed range", `${fine(v.minSec)} to ${fine(v.maxSec)} min`, `${v.runs} runs`)
+      : fact("observed range", "not measured", "single run")
+  );
+  facts.appendChild(fact("stated priority", t.statedRank ? `rank ${t.statedRank}` : "never named"));
+  host.appendChild(facts);
+
+  if (held) {
+    const why = document.createElement("div");
+    why.className = "said-note declined-note";
+    const p = document.createElement("p");
+    p.textContent =
+      `No share is reported for this topic. What was found, ${fmtSmall(sec)}, ` +
+      `falls under the ${(floor / 60).toFixed(1)} minute floor, which is the largest swing ` +
+      `between identical runs of the same measurement. An amount that small cannot be told ` +
+      `apart from one line assigned to the wrong topic. The evidence is below so you can judge ` +
+      `it yourself.`;
+    const cite = document.createElement("cite");
+    cite.textContent = "rule fixed in docs/variance.md on 2026-10-16, before the window closed";
+    why.append(p, cite);
+    host.appendChild(why);
+  }
+
+  const list = document.createElement("ul");
+  list.className = "seg-list";
+  const rows = contributions(selected);
+
+  if (!rows.length) {
+    const li = document.createElement("li");
+    li.className = "seg-item";
+    li.textContent =
+      "Nothing in the window was attributed to this topic. No segment, no minutes, nothing to show.";
+    list.appendChild(li);
+  }
+
+  for (const { conv, seg, sec: segSec } of rows) {
+    const excluded = effLabel(conv, seg) !== "own";
+    const li = document.createElement("li");
+    li.className = "seg-item" + (excluded ? " excluded" : "");
+
+    const top = document.createElement("div");
+    top.className = "seg-top";
+    const where = document.createElement("span");
+    where.className = "seg-where";
+    where.textContent = conv.title || `conversation ${conv.id}`;
+    const meta = document.createElement("span");
+    meta.className = "seg-meta";
+    meta.textContent =
+      `${fmtMin(segSec)} min of ${fmtMin(seg.speechSec)} · ${clock(seg.startMs)}` +
+      (seg.confidence != null ? ` · confidence ${seg.confidence}` : "") +
+      (seg.mixed ? " · mixed" : "");
+    top.append(where, meta);
+    li.appendChild(top);
+
+    if (seg.reasons?.length) {
+      const why = document.createElement("ul");
+      why.className = "seg-why";
+      for (const r of seg.reasons) {
+        const w = document.createElement("li");
+        w.textContent = r;
+        why.appendChild(w);
+      }
+      li.appendChild(why);
+    }
+
+    const samples = seg.samples?.[selected] ?? [];
+    if (samples.length) {
+      const lines = document.createElement("ul");
+      lines.className = "lines";
+      for (const s of samples) {
+        const ln = document.createElement("li");
+        const idx = document.createElement("span");
+        idx.textContent = String(s.index);
+        ln.append(idx, document.createTextNode(s.text));
+        lines.appendChild(ln);
+      }
+      li.appendChild(lines);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "seg-actions";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ghost";
+    btn.textContent = excluded ? "Count this as mine again" : "This was not mine";
+    btn.addEventListener("click", () => {
+      const k = segKey(conv, seg);
+      if (overrides.has(k)) overrides.delete(k);
+      else overrides.set(k, seg.label === "own" ? "media" : "own");
+      render();
+    });
+    actions.appendChild(btn);
+    li.appendChild(actions);
+
+    list.appendChild(li);
+  }
+
+  host.appendChild(list);
+}
+
+/* Corrections -------------------------------------------------------- */
+
+let baseline = null;
+
+function renderAdjust(m) {
+  const host = el("adjust");
+  el("reset").hidden = overrides.size === 0;
+  if (!overrides.size) { host.hidden = true; return; }
+  host.hidden = false;
+
+  const list = el("adjust-list");
+  list.textContent = "";
+  for (const [k, to] of overrides) {
+    const [id, order] = k.split(":");
+    const conv = P.conversations.find((c) => c.id === id);
+    const seg = conv?.segments.find((s) => String(s.order) === order);
+    const li = document.createElement("li");
+    li.textContent =
+      `${conv?.title || id}, ${fmtMin(seg?.speechSec ?? 0)} min from ` +
+      `${clock(seg?.startMs ?? 0)}: counted as ` +
+      (to === "own" ? "yours" : "not yours");
+    list.appendChild(li);
+  }
+
+  const now = ranked(m).filter((r) => r.sec > 0).map((r) => r.label);
+  el("adjust-delta").textContent =
+    `Own time ${fmtMin(baseline.own)} min before, ${fmtMin(m.own)} min now. ` +
+    `Ranking was ${baseline.order.slice(0, 4).join(" > ")}. ` +
+    `Ranking is ${now.slice(0, 4).join(" > ") || "nothing above zero"}.`;
+}
+
+/* Wiring ------------------------------------------------------------- */
+
+function select(id) {
+  selected = selected === id ? null : id;
+  render();
+}
+
+function render() {
+  const m = compute();
+  renderCapture(m);
+  renderLeft();
+  renderRight(m);
+  renderDetail(m);
+  renderAdjust(m);
+  requestAnimationFrame(drawWires);
+}
+
+function start(payload) {
+  P = payload;
+  el("empty").hidden = true;
+  el("app").hidden = false;
+  el("window-label").textContent =
+    `${P.window.label} · built ${new Date(P.builtAt).toLocaleString(undefined, {
+      month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+    })}`;
+
+  const m0 = compute();
+  baseline = {
+    own: m0.own,
+    order: ranked(m0).filter((r) => r.sec > 0).map((r) => r.label),
+  };
+
+  el("mode-own").addEventListener("click", () => {
+    mode = "own";
+    el("mode-own").setAttribute("aria-pressed", "true");
+    el("mode-all").setAttribute("aria-pressed", "false");
+    render();
+  });
+  el("mode-all").addEventListener("click", () => {
+    mode = "all";
+    el("mode-all").setAttribute("aria-pressed", "true");
+    el("mode-own").setAttribute("aria-pressed", "false");
+    render();
+  });
+  el("reset").addEventListener("click", () => {
+    overrides.clear();
+    render();
+  });
+  addEventListener("resize", () => requestAnimationFrame(drawWires));
+
+  render();
+}
+
+el("picker").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    start(JSON.parse(await file.text()));
+  } catch (err) {
+    alert(`That file did not parse as the payload: ${err.message}`);
+  }
+});
+
+(async () => {
+  try {
+    const res = await fetch("../data/view/payload.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(String(res.status));
+    start(await res.json());
+  } catch {
+    el("empty").hidden = false;
+  }
+})();
+</script>
+</body>
+</html>

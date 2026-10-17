@@ -27,17 +27,27 @@ Labels:
            stretches where they say nothing at all. A class they are enrolled
            in, a meeting they are attending, a call, a game they are playing,
            a conversation at home. Solo speech counts too: talking to pets,
-           singing, thinking aloud. The wearer does not have to be the one
-           speaking for a run to be theirs.
+           thinking aloud. The wearer does not have to be the one speaking for
+           a run to be theirs.
   media    broadcast or recorded entertainment the wearer is an audience to
            rather than a participant in. Television, film, streamed video,
-           music, radio. The test is participation, not where the sound comes
-           from: a class delivered over video is own, a drama on the TV is
-           media.
+           radio. The test is participation, not where the sound comes from: a
+           class delivered over video is own, a drama on the TV is media.
   ambient  incidental audio the wearer has no part in and did not choose.
            Strangers at a nearby table, a public address system, background
            chatter in a public place.
   unclear  the evidence genuinely does not settle it.
+
+Song lyrics are a special case and the rule is absolute. A person singing
+along produces the same words as the recording, so a transcript of lyrics
+cannot establish who made the sound. When a run is mostly song lyrics, answer
+unclear, whatever else the run suggests. Do not reason from how garbled the
+lyrics are, from whether a chorus repeats, or from a sense that someone is
+joining in. None of that survives transcription. Speech around the music is
+evidence about the speech, not about the song, so lyrics plus a few lines of
+conversation is still unclear. Classify a music run as media only when
+something other than the lyrics establishes it: an announcer, an advert, or
+some other broadcast frame.
 
 Evidence that works:
   - Does the content reference people, places, projects or commitments from

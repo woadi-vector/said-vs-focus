@@ -56,12 +56,36 @@ async function classifyWithRetry(w) {
   throw last;
 }
 
-const only = process.argv[2];
+// By default a conversation already on disk as segments is skipped, because a
+// full corpus pass costs real tokens and most of it is unchanged between runs.
+// Pass --all to reclassify everything, which is what to do whenever
+// src/classify.mjs changes: a corpus half-labelled by two classifier versions
+// is worse than paying for the full pass.
+const args = process.argv.slice(2);
+const force = args.includes("--all");
+const only = args.find((a) => !a.startsWith("--"));
+
 await fs.mkdir(outDir, { recursive: true });
 
-const files = (await fs.readdir(inDir)).filter(
+const done = force
+  ? new Set()
+  : new Set(await fs.readdir(outDir).catch(() => []));
+
+const all = (await fs.readdir(inDir)).filter(
   (f) => !only || f === `${only}.json`
 );
+const files = all.filter((f) => only || !done.has(f));
+
+if (all.length !== files.length) {
+  console.log(
+    `${all.length - files.length} already classified, skipping. ` +
+      `Use --all to redo them.`
+  );
+}
+if (files.length === 0) {
+  console.log("Nothing to classify.");
+  process.exit(0);
+}
 
 const failures = [];
 
