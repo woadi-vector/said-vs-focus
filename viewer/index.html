@@ -333,15 +333,33 @@ body {
 
 /* The refusal. Stated as its own block so declining to rank reads as a
    decision the instrument made, not as a row that happens to be empty. */
-.declined-head {
-  padding: 1.1rem .55rem .5rem;
-  margin-top: .6rem;
-  border-top: 1px solid var(--rule-firm);
+.declined-label {
+  margin-top: 1.4rem;
+  padding: .75rem .55rem .1rem;
+  border-top: 2px solid var(--stated);
   font-family: var(--mono);
-  font-size: .75rem;
-  line-height: 1.55;
-  color: var(--ink-mute);
-  max-width: 56ch;
+  font-size: .78rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--stated);
+}
+.declined-head {
+  padding: .35rem .55rem .55rem;
+  font-size: .9rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 60ch;
+}
+.declined-extra {
+  padding: .9rem .55rem .2rem;
+  font-size: .9rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 60ch;
+}
+.declined-extra b {
+  color: var(--ink);
+  font-weight: 500;
 }
 .rows.right .row.declined {
   grid-template-columns: minmax(0, 1fr) auto;
@@ -803,10 +821,18 @@ function renderRight(m) {
   }
 
   if (declined.length) {
+    // The refusal gets a label and the same type size as the ranking. A
+    // measurement that declines to answer is making a decision, and a
+    // decision rendered in grey 12px mono reads as a disclaimer instead.
+    const label = document.createElement("div");
+    label.className = "declined-label";
+    label.textContent = "What this declined to answer";
+    host.appendChild(label);
+
     const head = document.createElement("div");
     head.className = "declined-head";
     head.textContent = floor
-      ? `Not ranked. Below the ${(floor / 60).toFixed(1)} minute floor, which is the largest swing between identical runs, so these cannot be told apart from a single mis-assignment.`
+      ? `Not ranked. Below the ${(floor / 60).toFixed(1)} minute floor, which is the largest swing between identical runs, so this cannot be told apart from a single line assigned to the wrong topic.`
       : "Not ranked. Nothing was attributed to these.";
     host.appendChild(head);
 
@@ -826,6 +852,20 @@ function renderRight(m) {
       b.addEventListener("click", () => select(r.id));
       host.appendChild(b);
     }
+
+    // The second refusal, which is a property of the method rather than of a
+    // topic, so no row carries it and without this it never reaches the
+    // screen at all.
+    const lyrics = document.createElement("div");
+    lyrics.className = "declined-extra";
+    lyrics.innerHTML =
+      "<b>Song lyrics are never attributed from a transcript.</b> A person " +
+      "singing along produces the same words as the recording, so the words " +
+      "cannot establish who made the sound. 38 minutes of this window stayed " +
+      "undecidable under that rule until the wearer supplied a fact the device " +
+      "did not have: he listens on headphones, so a recording never reaches " +
+      "the microphone. The rule still holds for anyone who plays music aloud.";
+    host.appendChild(lyrics);
   }
 
   // One orchestrated move: rows that changed rank slide from where they were.
