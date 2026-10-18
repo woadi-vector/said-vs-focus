@@ -460,11 +460,24 @@ body {
   color: var(--ink-soft);
   white-space: nowrap;
 }
+.seg-fix {
+  margin: .5rem 0 0;
+  max-width: 68ch;
+  font-size: .875rem;
+  line-height: 1.45;
+  color: var(--ink);
+  border-left: 2px solid var(--stated);
+  padding-left: .7rem;
+}
 .seg-why {
   margin: .5rem 0 0;
   padding: 0;
   list-style: none;
   max-width: 68ch;
+}
+.seg-why.superseded li {
+  opacity: .62;
+  font-style: italic;
 }
 .seg-why li {
   font-size: .875rem;
@@ -943,10 +956,19 @@ function renderDetail(m) {
   // Whole minutes would print a 4.5 to 5.3 spread as "5 to 5", which is the
   // false precision docs/variance.md exists to prevent.
   const fine = (s) => (s < 1800 ? (s / 60).toFixed(1) : String(Math.round(s / 60)));
+  // The replicates ran on uncorrected segments, so this range describes how
+  // much the attributor moves between identical runs, not the corrected
+  // total above it. Singing measures 51 min against a pre-correction range of
+  // 25.4 to 26.2, and without the label those two lines read as a
+  // contradiction instead of as the size of the correction.
   facts.appendChild(
     v && v.runs
-      ? fact("observed range", `${fine(v.minSec)} to ${fine(v.maxSec)} min`, `${v.runs} runs`)
-      : fact("observed range", "not measured", "single run")
+      ? fact(
+          "run-to-run range",
+          `${fine(v.minSec)} to ${fine(v.maxSec)} min`,
+          `${v.runs} runs, before hand corrections`
+        )
+      : fact("run-to-run range", "not measured", "single run")
   );
   facts.appendChild(fact("stated priority", t.statedRank ? `rank ${t.statedRank}` : "never named"));
   host.appendChild(facts);
@@ -994,13 +1016,27 @@ function renderDetail(m) {
     meta.textContent =
       `${fmtMin(segSec)} min of ${fmtMin(seg.speechSec)} · ${clock(seg.startMs)}` +
       (seg.confidence != null ? ` · confidence ${seg.confidence}` : "") +
-      (seg.mixed ? " · mixed" : "");
+      (seg.mixed || seg.humanMixed ? " · mixed" : "");
     top.append(where, meta);
     li.appendChild(top);
+
+    // A corrected segment has to say so before its reasoning is shown, or the
+    // filter appears to be arguing for a label that is no longer in force.
+    if (seg.correctedBy && seg.originalLabel) {
+      const fix = document.createElement("p");
+      fix.className = "seg-fix";
+      fix.textContent =
+        `Corrected by hand: the filter called this ${seg.originalLabel}, ` +
+        `reviewed and changed to ${seg.label}. The reasoning below is the ` +
+        `filter's case for ${seg.originalLabel}, kept so the disagreement is ` +
+        `visible rather than overwritten.`;
+      li.appendChild(fix);
+    }
 
     if (seg.reasons?.length) {
       const why = document.createElement("ul");
       why.className = "seg-why";
+      if (seg.correctedBy) why.classList.add("superseded");
       for (const r of seg.reasons) {
         const w = document.createElement("li");
         w.textContent = r;

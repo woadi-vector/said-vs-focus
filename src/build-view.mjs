@@ -100,6 +100,13 @@ for (const f of segFiles) {
     return {
       order,
       label: s.label,
+      // Correction provenance, written by src/apply-corrections.mjs. Without
+      // it the viewer shows the filter's reasoning for a label a person later
+      // overruled, with nothing saying so, which reads as a defect rather
+      // than as the review working.
+      originalLabel: s.originalLabel ?? null,
+      correctedBy: s.correctedBy ?? null,
+      humanMixed: s.humanMixed ?? false,
       confidence: s.confidence,
       mixed: s.mixed ?? false,
       from: s.from,
