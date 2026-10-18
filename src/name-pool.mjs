@@ -38,6 +38,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(here, "..", "data");
 const convDir = path.join(dataDir, "conversations");
 const attrDir = path.join(dataDir, "attribution");
+const segDir = path.join(dataDir, "segments");
 const outDir = path.join(dataDir, "pool");
 
 // Same boundaries as src/build-view.mjs and src/replicates.mjs.
@@ -137,8 +138,18 @@ const inWindow = (utts) =>
 
 // Collect every pooled line in the window, grouped into chunks that do not
 // straddle a conversation.
+// Own time and the pool are both read against the CURRENT segmentation, not
+// against whatever an attribution file happens to remember.
+//
+// src/attribute.mjs skips a conversation with no own segments, so when a
+// correction takes a conversation's last own segment away, its old attribution
+// file stays on disk asserting own minutes and topics that no longer exist.
+// src/build-view.mjs scopes by segment and ignores them. Summing attr.ownSec
+// here instead produced a 30-minute disagreement between two numbers that are
+// supposed to describe the same window, which is how this was found.
 const files = (await fs.readdir(attrDir)).filter((f) => f.endsWith(".json"));
 const chunks = [];
+const stale = [];
 let ownSecTotal = 0;
 
 for (const f of files) {
@@ -153,9 +164,31 @@ for (const f of files) {
   );
   if (!inWindow(utts)) continue;
 
-  ownSecTotal += attr.ownSec ?? 0;
+  let seg;
+  try {
+    seg = JSON.parse(await fs.readFile(path.join(segDir, `${id}.json`), "utf8"));
+  } catch {
+    stale.push({ id, why: "no segment file" });
+    continue;
+  }
 
-  const idx = attr.lines?.[UNPREDICTED.id] ?? [];
+  const own = (seg.segments ?? []).filter((s) => s.label === "own");
+  if (own.length === 0) {
+    stale.push({
+      id,
+      why: `attribution claims ${f1(attr.ownSec ?? 0)} min of own time, ` +
+        `but no own segments remain`,
+    });
+    continue;
+  }
+
+  ownSecTotal += own.reduce((t, s) => t + s.speechSec, 0);
+
+  // A pooled index is only pooled own time if it still falls inside an own
+  // segment. After a relabel, some will not.
+  const inOwn = (n) => own.some((s) => n >= s.from && n < s.to);
+  const idx = (attr.lines?.[UNPREDICTED.id] ?? []).filter(inOwn);
+
   for (let i = 0; i < idx.length; i += CHUNK) {
     const slice = idx.slice(i, i + CHUNK);
     chunks.push({
@@ -165,6 +198,15 @@ for (const f of files) {
       lines: slice.map((n) => utts[n]).filter(Boolean),
     });
   }
+}
+
+if (stale.length) {
+  console.log(
+    `Ignoring ${stale.length} stale attribution file(s) whose own segments ` +
+      `were corrected away. Delete them so nothing else reads them:`
+  );
+  for (const s of stale) console.log(`  data/attribution/${s.id}.json  (${s.why})`);
+  console.log("");
 }
 
 if (chunks.length === 0) {
@@ -260,6 +302,33 @@ for (const r of summary) {
   );
 }
 
+const failed = chunks.filter((c) => c.label === "(failed)");
+const failedSec = failed.reduce(
+  (t, c) => t + c.lines.reduce((s, u) => s + dur(u), 0),
+  0
+);
+
+// A claim verdict computed over chunks that never got a label is not a
+// verdict. An earlier run of this script printed "Claim 4 is FALSE" off 42
+// consecutive API failures, which is a false published result waiting to
+// happen, so scoring now refuses rather than guesses.
+if (failed.length) {
+  console.log(
+    `\n${failed.length} of ${chunks.length} chunks failed (${f1(failedSec)} min ` +
+      `of ${f1(pooledSec)}). First error:\n  ${failed[0].error}`
+  );
+  console.log(
+    `\nClaim 4 NOT SCORED. Unlabelled time cannot be ruled above or below ` +
+      `the threshold, and reporting a verdict over it would be reporting the ` +
+      `failure as a finding. Fix the cause and re-run.`
+  );
+  if (/BEDROCK_MODEL_ID|ANTHROPIC_API_KEY/.test(failed[0].error ?? "")) {
+    console.log(`\n  Looks like the env was not loaded. Try:`);
+    console.log(`  node --env-file=.env src/name-pool.mjs`);
+  }
+  process.exit(1);
+}
+
 const largest = summary[0];
 const over = summary.filter((r) => r.sec > threshold);
 const nearBand = summary.filter(
@@ -285,11 +354,6 @@ if (nearBand.length) {
       `10 percent, and nothing sits close enough to the line for the ` +
       `chunk-level granularity to be in question.`
   );
-}
-
-const failed = chunks.filter((c) => c.label === "(failed)");
-if (failed.length) {
-  console.log(`\n${failed.length} chunk(s) failed and are excluded above.`);
 }
 
 await fs.mkdir(outDir, { recursive: true });
